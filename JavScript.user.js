@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            JavScript
 // @namespace       JavScript@blc
-// @version         3.4.7
+// @version         3.4.8
 // @author          blc
 // @description     一站式体验，JavBus & JavDB 兼容
 // @icon            https://s1.ax1x.com/2022/04/01/q5lzYn.png
@@ -1452,6 +1452,26 @@
 			return infScroll;
 		};
 		// L_MERGE
+		listMerge = () => {
+			const mergeStr = this.L_MERGE.trim();
+			if (!mergeStr) return;
+
+			const mergeGrp = mergeStr
+				.split("\n\n")
+				.map(item => item.trim())
+				.filter(item => /^\[.+\]/.test(item));
+
+			const res = [];
+			mergeGrp.forEach(item => {
+				const list = item
+					.split("\n")
+					.map(item => item.trim())
+					.filter(Boolean);
+				if (list?.length > 1) res.push(list[0].replaceAll(/\[|\]/g, ""));
+			});
+
+			return unique(res.map(item => item?.trim()).filter(Boolean));
+		};
 		getMerge = key => {
 			if (!key || !this.L_MERGE) return;
 
@@ -1900,6 +1920,42 @@
 				info.replaceChild(_title, title);
 			}
 		};
+		_listMerge = call => {
+			const nav = this.listMerge();
+			if (!nav?.length) return;
+
+			if (!call) {
+				call = nav => {
+					const ul = DOC.querySelector("#navbar > ul.nav.navbar-nav");
+					ul.insertAdjacentHTML(
+						"beforeend",
+						`
+                        <li id="merge" class="dropdown hidden-sm">
+                            <a
+                                href="#"
+                                class="dropdown-toggle"
+                                data-toggle="dropdown"
+                                data-hover="dropdown"
+                                role="button"
+                                aria-expanded="false"
+                            >
+                                合并列表 <span class="caret"></span>
+                            </a>
+                            <ul class="dropdown-menu" role="menu">
+                                ${nav.reduce(
+									(prev, curr) =>
+										`${prev}<li><a href="${location.origin}?merge=${curr}">${curr}</a></li>`,
+									""
+								)}
+                            </ul>
+                        </li>
+                        `
+					);
+				};
+			}
+
+			call(nav);
+		};
 
 		// modules
 		list = {
@@ -1975,6 +2031,8 @@
 				);
 			},
 			contentLoaded() {
+				this._listMerge();
+
 				this._globalSearch();
 				this._globalClick(url => {
 					const node = DOC.querySelector(`a.movie-box[href="${url}"]`);
@@ -1983,7 +2041,18 @@
 
 				const { search } = location;
 				if (location.pathname === "/" && search.startsWith("?merge=")) {
-					return this.fetchMerge(this.getMerge(search.split("=").pop()));
+					const title = search.split("=").pop();
+					const list = this.getMerge(title);
+					if (!list?.length) return location.replace(location.origin);
+
+					DOC.title = `${title} - 合并列表 - JavBus`;
+
+					const merge = DOC.querySelector("#merge");
+					if (merge) {
+						DOC.querySelector("#navbar > ul.nav.navbar-nav > .active").classList.remove("active");
+						merge.classList.add("active");
+					}
+					return this.fetchMerge(list);
 				}
 
 				const nav = DOC.querySelector(".search-header .nav");
@@ -1992,8 +2061,6 @@
 				this.modifyLayout();
 			},
 			async fetchMerge(list) {
-				if (!list?.length) location.replace(location.origin);
-
 				const parseDate = node => node.querySelector("date:last-child").textContent.replaceAll("-", "").trim();
 
 				const mergeItem = nodeList => {
@@ -2203,6 +2270,8 @@
 				this.globalDark(`${this.style}${this._style}${style}`, `${this.dmStyle}${this._dmStyle}${dmStyle}`);
 			},
 			contentLoaded() {
+				this._listMerge();
+
 				this._globalSearch();
 				if (!DOC.querySelector("button.btn.btn-danger.btn-block.btn-genre")) return;
 
@@ -2263,6 +2332,13 @@
 				this.globalDark(`${this.style}${this._style}${style}`);
 			},
 			contentLoaded() {
+				this._listMerge(nav => {
+					DOC.querySelector("#toptb ul").insertAdjacentHTML(
+						"beforeend",
+						`<li class="nav-title nav-inactive"><a href="/?merge=${nav[0]}">合并列表</a></li>`
+					);
+				});
+
 				this._globalSearch();
 			},
 		};
@@ -2436,6 +2512,8 @@
 				);
 			},
 			contentLoaded() {
+				this._listMerge();
+
 				this._globalSearch();
 				this._globalClick();
 
