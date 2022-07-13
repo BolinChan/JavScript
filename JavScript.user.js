@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            JavScript
 // @namespace       JavScript@blc
-// @version         3.4.8
+// @version         3.4.9
 // @author          blc
 // @description     一站式体验，JavBus & JavDB 兼容
 // @icon            https://s1.ax1x.com/2022/04/01/q5lzYn.png
@@ -1939,8 +1939,8 @@
 
 			if (!call) {
 				call = nav => {
-					const ul = DOC.querySelector("#navbar > ul.nav.navbar-nav");
-					ul.insertAdjacentHTML(
+					const navbar = DOC.querySelector("#navbar > ul.nav.navbar-nav");
+					navbar?.insertAdjacentHTML(
 						"beforeend",
 						`
                         <li id="merge" class="dropdown hidden-sm">
@@ -2346,7 +2346,7 @@
 			},
 			contentLoaded() {
 				this._listMerge(nav => {
-					DOC.querySelector("#toptb ul").insertAdjacentHTML(
+					DOC.querySelector("#toptb ul")?.insertAdjacentHTML(
 						"beforeend",
 						`<li class="nav-title nav-inactive"><a href="/?merge=${nav[0]}">合并列表</a></li>`
 					);
@@ -2917,7 +2917,7 @@
 			return super.init();
 		}
 
-		excludeMenu = ["G_DARK", "L_MIT", "L_MERGE", "M_STAR", "M_SUB"];
+		excludeMenu = ["G_DARK", "L_MIT", "M_STAR", "M_SUB"];
 
 		routes = {
 			list: /^\/$|^\/(guess|censored|uncensored|western|fc2|anime|search|video_codes|tags|rankings|actors|series|makers|directors|publishers)/i,
@@ -2966,6 +2966,25 @@
 		// methods
 		_globalSearch = () => {
 			this.globalSearch("#video-search", "/search?q=%s");
+		};
+		_listMerge = () => {
+			const nav = this.listMerge();
+			if (!nav?.length) return;
+
+			DOC.querySelector("#navbar-menu-hero .navbar-start")?.insertAdjacentHTML(
+				"beforeend",
+				`
+                <div class="navbar-item has-dropdown is-hoverable">
+                    <a class="navbar-link" href="/?merge=${nav[0]}">合并列表</a>
+                    <div class="navbar-dropdown is-boxed">
+                        ${nav.reduce(
+							(prev, curr) => `${prev}<a class="navbar-item" href="/?merge=${curr}">${curr}</a>`,
+							""
+						)}
+                    </div>
+                </div>
+                `
+			);
 		};
 
 		// modules
@@ -3122,6 +3141,7 @@
 				this.globalDark(`${this.style}${this.customStyle}${this._style}${style}${this.listMovieTitle()}`);
 			},
 			contentLoaded() {
+				this._listMerge();
 				this.captureJump();
 
 				this._globalSearch();
@@ -3130,6 +3150,16 @@
 					const node = DOC.querySelector(`.movie-list .box[href="${url}"]`);
 					if (node) this.updateMatchStatus(node);
 				});
+
+				const { search } = location;
+				if (location.pathname === "/" && search.startsWith("?merge=")) {
+					const title = search.split("=").pop();
+					const list = this.getMerge(title);
+					if (!list?.length) return location.replace(location.origin);
+
+					DOC.title = `${title} - 合并列表 - JavDB`;
+					return this.fetchMerge(list);
+				}
 
 				const selectors = [".movie-list", ".actors", ".section-container"];
 				if (DOC.querySelectorAll(selectors).length === 1) {
@@ -3162,6 +3192,85 @@
 					return regex.test(item.querySelector(".video-title strong")?.textContent ?? "");
 				});
 				if (node?.href) location.replace(node.href);
+			},
+			async fetchMerge(list) {
+				GM_addStyle(`
+                .tabs.main-tabs.is-boxed,
+                .toolbar {
+                    display: none;
+                }
+                section.section {
+                    padding-bottom: 0;
+                }
+                `);
+
+				const selectors = ".movie-list";
+
+				const parseDate = node => node.querySelector(".meta").textContent.replaceAll("-", "").trim();
+
+				const mergeItem = nodeList => {
+					let items = [];
+					nodeList.forEach(dom => items.push(...Array.from(this.modifyItem(dom, selectors) ?? [])));
+
+					items = items.reduce((total, item) => {
+						const code = item.querySelector(".video-title strong");
+						const date = item.querySelector(".meta");
+
+						const index = total.findIndex(t => {
+							const _code = t.querySelector(".video-title strong");
+							const _date = t.querySelector(".meta");
+							return code.textContent === _code.textContent && date.textContent === _date.textContent;
+						});
+						if (index === -1) total.push(item);
+
+						return total;
+					}, []);
+
+					items.sort((first, second) => parseDate(second) - parseDate(first));
+					return items;
+				};
+
+				const container = DOC.querySelector(selectors);
+				const _container = container.cloneNode(true);
+				_container.style.cssText += "display:grid";
+				_container.innerHTML = "";
+
+				list = await Promise.all(list.map(item => request(`${location.origin}${item}`)));
+				const items = mergeItem(list);
+				if (items.length) items.forEach(item => _container.appendChild(item));
+
+				container.parentElement.replaceChild(_container, container);
+				const status = DOC.create("div", { id: "x-status" }, items.length ? "加载中..." : "没有更多了");
+				_container.insertAdjacentElement("afterend", status);
+
+				if (!items.length) return;
+				let isLoading = false;
+				const noMore = () => {
+					window.onscroll = null;
+					status.textContent = "没有更多了";
+				};
+				window.onscroll = async () => {
+					if (isLoading) return;
+
+					const scrollHeight = Math.max(DOC.documentElement.scrollHeight, DOC.body.scrollHeight);
+					const scrollTop = window.pageYOffset || DOC.documentElement.scrollTop || DOC.body.scrollTop;
+					const clientHeight =
+						window.innerHeight || Math.min(DOC.documentElement.clientHeight, DOC.body.clientHeight);
+					if (clientHeight + scrollTop + 40 < scrollHeight) return;
+
+					isLoading = true;
+
+					list = list.map(dom => dom.querySelector(".pagination-next")?.href ?? "").filter(Boolean);
+					if (!list.length) return noMore();
+
+					list = await Promise.all(list.map(item => request(item)));
+					const _items = mergeItem(list);
+					if (!_items.length) return noMore();
+
+					_items.forEach(item => _container.appendChild(item));
+
+					isLoading = false;
+				};
 			},
 			modifyLayout(selectors) {
 				const container = DOC.querySelector(selectors);
@@ -3442,6 +3551,8 @@
 				this.globalDark(`${this.style}${this.customStyle}${this._style}${style}`);
 			},
 			contentLoaded() {
+				this._listMerge();
+
 				addMeta();
 
 				this._globalSearch();
@@ -3715,6 +3826,7 @@
 				GM_addStyle(`${this.style}${this._style}`);
 			},
 			contentLoaded() {
+				this._listMerge();
 				this._globalSearch();
 			},
 		};
