@@ -95,7 +95,7 @@
 				url,
 				data,
 				method,
-				timeout: 20000,
+				timeout: 10000,
 				onload: ({ status, response }) => {
 					if (response?.errcode === 911) verify();
 					if (status === 404) response = false;
@@ -220,6 +220,12 @@
 		nodeList.forEach(node => {
 			const img = node.querySelector("img");
 			if (img) img.onload = () => loaded(img);
+		});
+	};
+	const addMeta = () => {
+		GM_addElement(DOC.head, "meta", {
+			"http-equiv": "Content-Security-Policy",
+			content: "upgrade-insecure-requests",
 		});
 	};
 
@@ -2521,10 +2527,7 @@
 			contentLoaded() {
 				this._listMerge();
 
-				GM_addElement(DOC.head, "meta", {
-					"http-equiv": "Content-Security-Policy",
-					content: "upgrade-insecure-requests",
-				});
+				addMeta();
 
 				this._globalSearch();
 				this._globalClick();
@@ -2903,6 +2906,816 @@
 				await this.driveOffline(e, { ...this.params, magnets: this.magnets });
 				await delay(1);
 				this._driveMatch();
+			},
+		};
+	}
+
+	// javdb
+	class JavDB extends Common {
+		constructor() {
+			super();
+			return super.init();
+		}
+
+		excludeMenu = ["G_DARK", "L_MIT", "L_MERGE", "M_STAR", "M_SUB"];
+
+		routes = {
+			list: /^\/$|^\/(guess|censored|uncensored|western|fc2|anime|search|video_codes|tags|rankings|actors|series|makers|directors|publishers)/i,
+			movie: /^\/v\//i,
+			others: /.*/i,
+		};
+
+		// styles
+		_style = `
+        html {
+            padding: 0 !important;
+            overflow: overlay;
+        }
+        body {
+            padding-top: 3.25rem;
+        }
+        .section {
+            padding: 0;
+        }
+        section.section {
+            padding: 20px;
+        }
+        #search-type,
+        #video-search {
+            border: none;
+        }
+        #video-search:hover,
+        #video-search:focus {
+            z-index: auto;
+        }
+        .float-buttons {
+            right: 8px;
+        }
+        #footer,
+        nav.app-desktop-banner {
+            display: none !important;
+        }
+        [data-theme="dark"] ::-webkit-scrollbar-thumb {
+            background: #313131 !important;
+        }
+        [data-theme="dark"] img {
+            filter: brightness(0.9) contrast(0.9);
+        }
+        `;
+
+		// methods
+		_globalSearch = () => {
+			this.globalSearch("#video-search", "/search?q=%s");
+		};
+
+		// modules
+		list = {
+			docStart() {
+				const style = `
+                @media (max-width: 575.98px) {
+                    .movie-list.v,
+                    .actors {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                    .movie-list.h {
+                        grid-template-columns: repeat(1, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 576px) {
+                    .movie-list.v,
+                    .actors {
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                    }
+                    .movie-list.h {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 768px) {
+                    .movie-list.v,
+                    .actors {
+                        grid-template-columns: repeat(4, minmax(0, 1fr));
+                    }
+                    .movie-list.h {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 992px) {
+                    .movie-list.v,
+                    .actors {
+                        grid-template-columns: repeat(5, minmax(0, 1fr));
+                    }
+                    .movie-list.h {
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 1200px) {
+                    .movie-list.v,
+                    .actors {
+                        grid-template-columns: repeat(6, minmax(0, 1fr));
+                    }
+                    .movie-list.h {
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 1400px) {
+                    .movie-list.v,
+                    .actors {
+                        grid-template-columns: repeat(7, minmax(0, 1fr));
+                    }
+                    .movie-list.h {
+                        grid-template-columns: repeat(4, minmax(0, 1fr));
+                    }
+                }
+                .movie-list,
+                .actors,
+                .section-container {
+                    display: none;
+                    gap: 20px;
+                    margin: 0 !important;
+                    padding: 0 0 20px;
+                }
+                .movie-list img,
+                .actors img,
+                .section-container img {
+                    opacity: 0;
+                    transition: opacity 0.25s linear !important;
+                }
+                .movie-list .box {
+                    padding: 0 0 10px;
+                }
+                a.box:focus,
+                a.box:hover,
+                [data-theme="dark"] a.box:focus,
+                [data-theme="dark"] a.box:hover {
+                    box-shadow: none !important;
+                }
+                [data-theme="dark"] .box:focus,
+                [data-theme="dark"] .box:hover {
+                    background-color: #0a0a0a !important;
+                }
+                .movie-list .item .cover {
+                    padding: 0 !important;
+                }
+                .movie-list.v .item .cover {
+                    aspect-ratio: var(--x-thumb-ratio);
+                }
+                .movie-list.h .item .cover {
+                    aspect-ratio: var(--x-cover-ratio);
+                }
+                .movie-list .item .cover img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                }
+                .movie-list .item .cover:hover img {
+                    z-index: 0;
+                    transform: none;
+                }
+                .movie-list .item .video-title {
+                    margin: 10px 10px 0;
+                    padding: 0;
+                    font-size: 14px;
+                    line-height: var(--x-line-h);
+                }
+                .movie-list .item .score {
+                    padding: 10px 10px 0;
+                }
+                .movie-list .item .meta {
+                    padding: 4px 10px 0;
+                }
+                .movie-list .box .tags {
+                    min-height: 36px;
+                    margin-bottom: -8px;
+                    padding: 4px 10px 0;
+                }
+                .movie-list .box .tags .tag {
+                    margin-bottom: 8px;
+                }
+                .actors .box {
+                    margin-bottom: 0;
+                    padding-bottom: 10px;
+                    font-size: 14px;
+                }
+                .actor-box a strong {
+                    padding: 10px 10px 0;
+                    line-height: unset;
+                }
+                .section-container .box {
+                    font-size: 14px;
+                }
+                nav.pagination {
+                    display: none;
+                    margin: 0 -4px !important;
+                    padding: 20px 0 40px;
+                }
+                nav.pagination,
+                :root[data-theme="dark"] nav.pagination {
+                    border-top: none !important;
+                }
+                .awards {
+                    padding-bottom: 20px;
+                }
+                .awards:last-child {
+                    padding-bottom: 0;
+                }
+                `;
+				this.globalDark(`${this.style}${this.customStyle}${this._style}${style}${this.listMovieTitle()}`);
+			},
+			contentLoaded() {
+				this.captureJump();
+
+				this._globalSearch();
+				this.globalClick([".movie-list .box", ".actors .box a", ".section-container .box"], "", url => {
+					url = url.replace(location.origin, "");
+					const node = DOC.querySelector(`.movie-list .box[href="${url}"]`);
+					if (node) this.updateMatchStatus(node);
+				});
+
+				const selectors = [".movie-list", ".actors", ".section-container"];
+				if (DOC.querySelectorAll(selectors).length === 1) {
+					return selectors.forEach(item => this.modifyLayout(item));
+				}
+
+				GM_addStyle(`
+                .movie-list, .actors, .section-container { display: grid; }
+                .movie-list img, .actors img, .section-container img { opacity: 1; }
+                nav.pagination { display: flex; }
+                `);
+			},
+			captureJump() {
+				let { pathname, hash, search } = location;
+				if (pathname !== "/search" || hash !== "#jump") return;
+
+				let res = {};
+				search
+					.replace("?", "")
+					.split("&")
+					.forEach(item => {
+						const [key, val] = item.split("=");
+						res[key] = val;
+					});
+				res = res["q"];
+				if (!res) return;
+
+				const { regex } = codeParse(res);
+				const node = Array.from(DOC.querySelectorAll(".movie-list .item a") ?? []).find(item => {
+					return regex.test(item.querySelector(".video-title strong")?.textContent ?? "");
+				});
+				if (node?.href) location.replace(node.href);
+			},
+			modifyLayout(selectors) {
+				const container = DOC.querySelector(selectors);
+				if (!container) return;
+
+				const _container = container.cloneNode(true);
+				this.modifyItem(_container, selectors);
+				container.parentElement.replaceChild(_container, container);
+				_container.style.cssText += "display:grid";
+
+				const setSection = () => GM_addStyle(`section.section { padding-bottom: 0; }`);
+				const infScroll = this.listScroll(_container, "", ".pagination-next");
+				if (!infScroll) {
+					const pagination = DOC.querySelector("nav.pagination");
+					if (pagination) {
+						pagination.classList.add("x-flex");
+						setSection();
+					}
+					return;
+				}
+				setSection();
+
+				infScroll?.on("request", async (_, fetchPromise) => {
+					const { body } = await fetchPromise.then();
+					if (!body) return;
+					const items = this.modifyItem(body, selectors);
+					infScroll.appendItems(items);
+				});
+			},
+			modifyItem(container, selectors) {
+				const items = [];
+				container.querySelectorAll(`${selectors} a`).forEach(item => {
+					const _item = item.closest(`${selectors} > *`);
+					if (_item) {
+						this.modifyMovieBox(_item);
+						items.push(_item);
+					}
+				});
+				fadeInImg(items);
+				this._driveMatch(container);
+				return items;
+			},
+			modifyMovieBox(node = DOC) {
+				const items = node.querySelectorAll(".box");
+				for (const item of items) {
+					item?.querySelector(".video-title")?.classList.add("x-ellipsis", "x-title");
+				}
+			},
+			async _driveMatch(node = DOC) {
+				const items = node.querySelectorAll(".movie-list .box");
+				for (const item of items) await this.updateMatchStatus(item);
+			},
+			async updateMatchStatus(node) {
+				const code = node.querySelector(".video-title strong")?.textContent?.trim();
+				if (!code) return;
+
+				const res = await this.driveMatch({ code, res: "list" });
+				if (!res?.length) return;
+
+				const frame = node.querySelector(".cover");
+				frame.classList.add("x-player");
+				frame.setAttribute("title", "点击播放");
+				frame.setAttribute("data-code", res[0].pc);
+				node.querySelector(".x-title").classList.add("x-matched");
+			},
+		};
+		movie = {
+			params: {},
+			magnets: [],
+
+			docStart() {
+				const style = `
+                .first-block .copy-to-clipboard,
+                .review-buttons .panel-block:nth-child(2),
+                .top-meta > *:not(span.tag) {
+                    display: none;
+                }
+                img {
+                    width: 100% !important;
+                    vertical-align: middle;
+                }
+                h2.title {
+                    margin-bottom: 10px !important;
+                }
+                .video-meta-panel {
+                    margin-bottom: 20px;
+                    padding: 0;
+                }
+                .video-meta-panel > .columns {
+                    position: relative;
+                    margin: 0;
+                    overflow: hidden;
+                }
+                @media screen and (min-width: 1024px) {
+                    .video-meta-panel > .columns {
+                        align-items: start;
+                    }
+                }
+                .video-meta-panel > .columns > .column {
+                    padding: 10px;
+                }
+                .column-video-cover {
+                    position: relative;
+                    margin: 10px;
+                    padding: 0 !important;
+                    overflow: hidden;
+                    background-color: #000;
+                    aspect-ratio: var(--x-cover-ratio);
+                }
+                @media only screen and (max-width: 1024px) {
+                    .video-meta-panel .column-video-cover {
+                        width: auto !important;
+                        margin-bottom: 0;
+                    }
+                    #magnets-content > .columns {
+                        padding: 0;
+                    }
+                }
+                .column-video-cover .cover-container {
+                    position: static !important;
+                    display: inline !important;
+                }
+                .column-video-cover .cover-container::after {
+                    height: 100%;
+                }
+                .column-video-cover .cover-container .play-button {
+                    z-index: -1;
+                }
+                .x-contain.x-in + .play-button {
+                    z-index: auto;
+                }
+                .preview-images img {
+                    height: 100% !important;
+                    object-fit: cover;
+                }
+                .column-video-cover a > img {
+                    max-height: unset;
+                    opacity: 0;
+                }
+                .x-contain {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    z-index: -1;
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: contain !important;
+                    border: none;
+                    opacity: 0;
+                }
+                .x-contain.x-in {
+                    z-index: auto;
+                    display: block !important;
+                }
+                .movie-panel-info div.panel-block {
+                    padding: 10px 0;
+                    font-size: 14px;
+                }
+                .movie-panel-info > div.panel-block:first-child {
+                    padding-top: 0;
+                }
+                .movie-panel-info > div.panel-block:last-child {
+                    padding-bottom: 0;
+                }
+                .video-detail > .columns {
+                    margin: 0 0 20px;
+                }
+                .video-detail > .columns > .column {
+                    padding: 0;
+                }
+                .message-body {
+                    padding: 10px;
+                }
+                .video-panel .tile-images {
+                    gap: 10px;
+                }
+                @media (max-width: 575.98px) {
+                    .video-panel .tile-images {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 576px) {
+                    .video-panel .tile-images {
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 768px) {
+                    .video-panel .tile-images {
+                        grid-template-columns: repeat(4, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 992px) {
+                    .video-panel .tile-images {
+                        grid-template-columns: repeat(5, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 1200px) {
+                    .video-panel .tile-images {
+                        grid-template-columns: repeat(6, minmax(0, 1fr));
+                    }
+                }
+                @media (min-width: 1400px) {
+                    .video-panel .tile-images {
+                        grid-template-columns: repeat(7, minmax(0, 1fr));
+                    }
+                }
+                .preview-video-container::after {
+                    height: 100%;
+                }
+                .preview-images > a {
+                    aspect-ratio: var(--x-sprite-ratio);
+                }
+                #magnets > .message {
+                    margin-bottom: 0;
+                }
+                .top-meta {
+                    padding: 0 !important;
+                }
+                .top-meta > span.tag {
+                    margin: 0 5px 10px 0;
+                }
+                #magnets-content {
+                    max-height: 400px;
+                    overflow: auto;
+                }
+                #magnets-content > .columns {
+                    margin: 0;
+                    padding: 5px 0;
+                }
+                #magnets-content > .columns > .column {
+                    display: flex;
+                    align-items: center;
+                    margin: 0;
+                    padding: 5px 10px;
+                }
+                #magnets-content .tag,
+                #magnets-content .button {
+                    margin: 0;
+                }
+                .review-items .review-item {
+                    padding: 10px 0;
+                }
+                .review-items .review-item:first-child {
+                    padding-top: 0;
+                }
+                .review-items .review-item:last-child {
+                    padding-bottom: 0;
+                }
+                .message-header {
+                    padding: 8px 10px;
+                }
+                .tile-images.tile-small .tile-item {
+                    padding-bottom: 10px;
+                    background-color: #fff;
+                }
+                [data-theme="dark"] .tile-images.tile-small .tile-item {
+                    background-color: #0a0a0a;
+                }
+                .tile-images.tile-small .tile-item img {
+                    margin-bottom: 10px;
+                }
+                .tile-images.tile-small .tile-item > div {
+                    padding: 0 10px !important;
+                }
+                #x-switch {
+                    display: none;
+                }
+                #x-switch > * {
+                    flex: 1;
+                }
+                .x-from {
+                    min-width: 70px;
+                }
+                .x-offline {
+                    width: 100%;
+                }
+                `;
+				this.globalDark(`${this.style}${this.customStyle}${this._style}${style}`);
+			},
+			contentLoaded() {
+				addMeta();
+
+				this._globalSearch();
+				this.globalClick([".tile-images.tile-small a.tile-item"]);
+
+				const preview = DOC.querySelector(".preview-images");
+				if (preview && !preview.querySelector("a")) preview.closest(".columns").remove();
+
+				this.params = this.getParams();
+
+				addCopyTarget("h2.title", { title: "复制标题" });
+				addCopyTarget(".first-block .value", { title: "复制番号" });
+				this._movieJump();
+
+				this.initSwitch();
+				this.updateSwitch({ key: "img", title: "大图" });
+				this.updateSwitch({ key: "video", title: "预览" });
+				this.updateSwitch({ key: "player", title: "视频", type: "video" });
+
+				this._movieTitle();
+				this._movieMagnet();
+				this._driveMatch();
+				DOC.querySelector(".x-offline")?.addEventListener("click", e => this._driveOffline(e));
+			},
+			getParams() {
+				const infos = Array.from(DOC.querySelectorAll(".movie-panel-info > .panel-block") ?? []);
+				const findInfos = label => {
+					return (
+						infos
+							.find(info => info.querySelector("strong")?.textContent === label)
+							?.querySelector(".value")
+							?.textContent?.trim() ?? ""
+					);
+				};
+
+				return {
+					title: DOC.querySelector("h2.title").textContent.trim(),
+					code: DOC.querySelector(".first-block .value").textContent.trim(),
+					date: findInfos("日期:"),
+					studio: findInfos("片商:"),
+				};
+			},
+			_movieJump() {
+				const { code } = this.params;
+				if (code.startsWith("FC2")) return;
+
+				const node = DOC.querySelector(".first-block .value");
+				const prefix = node.querySelector("a")?.textContent ?? "";
+				if (!prefix || prefix === "复制") return;
+
+				const start = () => {
+					node.insertAdjacentHTML(
+						"beforeend",
+						`<a class="x-ml" href="https://www.javbus.com/${code}" title="跳转 JavBus">跳转</a>`
+					);
+				};
+				this.movieJump(start);
+			},
+			initSwitch() {
+				const info = DOC.querySelector(".movie-panel-info");
+				info.insertAdjacentHTML(
+					"afterbegin",
+					`<div class="panel-block" id="x-switch">
+                        <a class="button is-small is-light is-active" for="x-switch-cover" title="点击放大或切换静音">封面</a>
+                    </div>`
+				);
+				const cover = DOC.querySelector(".column-video-cover a > img");
+				cover.id = "x-switch-cover";
+				cover.classList.add("x-contain", "x-in");
+
+				DOC.querySelector("#x-switch").addEventListener("click", ({ target }) => {
+					const { classList } = target;
+					if (
+						target.nodeName !== "A" ||
+						target.getAttribute("disabled") === "" ||
+						classList.contains("is-loading")
+					) {
+						return;
+					}
+
+					const id = target.getAttribute("for");
+					const item = DOC.querySelector(`#${id}`);
+
+					if (classList.contains("is-active")) {
+						item.parentNode.click();
+						item.muted = !item.muted;
+					} else {
+						const preItem = DOC.querySelector(".column-video-cover .x-contain.x-in");
+						preItem?.pause && preItem.pause();
+						preItem.classList.toggle("x-in");
+						item.classList.toggle("x-in");
+						item?.play && item.play();
+						item?.focus && item.focus();
+
+						const preTarget = DOC.querySelector("#x-switch a.is-active");
+						preTarget.removeAttribute("title");
+						preTarget.classList.toggle("is-active");
+						target.classList.toggle("is-active");
+						target.setAttribute("title", "点击放大或切换静音");
+					}
+				});
+			},
+			async updateSwitch({ key, title, type }) {
+				if (!type) type = key;
+				const id = `x-switch-${key}`;
+				const switcher = DOC.querySelector("#x-switch");
+
+				const start = () => {
+					if (!switcher.classList.contains("x-flex")) switcher.classList.add("x-flex");
+					switcher.insertAdjacentHTML(
+						"beforeend",
+						`<a class="button is-small is-light is-loading" for="${id}">查看${title}</a>`
+					);
+				};
+
+				const src = await this[`movie${key[0].toUpperCase()}${key.slice(1)}`](this.params, start);
+				const node = switcher.querySelector(`a[for="${id}"]`);
+				if (!node) return;
+
+				node.classList.remove("is-loading");
+				if (!src?.length) {
+					node.setAttribute("disabled", "");
+					node.textContent = `暂无${title}`;
+					return;
+				}
+
+				let item = DOC.create(type, { id, class: "x-contain" });
+				if (typeof src === "string") item.src = src;
+
+				if (type === "video") {
+					if (Object.prototype.toString.call(src) === "[object Array]") {
+						src.forEach(params => {
+							const source = DOC.create("source", params);
+							item.appendChild(source);
+						});
+					}
+
+					item.controls = true;
+					item.currentTime = 3;
+					item.muted = true;
+					item.preload = "metadata";
+					item.addEventListener("click", e => {
+						e.preventDefault();
+						e.stopPropagation();
+						const { target: video } = e;
+						video.paused ? video.play() : video.pause();
+					});
+				} else {
+					item = DOC.create("a", { "data-fancybox": "gallery", href: item.src }, item);
+				}
+
+				DOC.querySelector(".column-video-cover").insertAdjacentElement("beforeend", item);
+			},
+			async _movieTitle() {
+				const start = () => {
+					DOC.querySelector("#x-switch").insertAdjacentHTML(
+						"afterend",
+						`<div class="panel-block"><strong>机翻:</strong>&nbsp;<span class="value x-transTitle">查询中...</span></div>`
+					);
+				};
+
+				const transTitle = await this.movieTitle(this.params, start);
+				const transTitleNode = DOC.querySelector(".x-transTitle");
+				if (transTitleNode) transTitleNode.textContent = transTitle ?? "查询失败";
+			},
+			async _driveMatch() {
+				const start = () => {
+					if (DOC.querySelector(".x-res")) return;
+
+					GM_addStyle(`#magnets-content button.button.x-hide{ display: flex; }`);
+					DOC.querySelector(".movie-panel-info").insertAdjacentHTML(
+						"beforeend",
+						`<div class="panel-block"><strong>资源:</strong>&nbsp;<span class="value x-res">查询中...</span></div><div class="panel-block"><button class="button is-info is-small x-offline" data-magnet="all">一键离线</button></div>`
+					);
+				};
+
+				const res = await this.driveMatch(this.params, start);
+				const resNode = DOC.querySelector(".x-res");
+				if (!resNode) return;
+
+				resNode.innerHTML = !res?.length
+					? "暂无网盘资源"
+					: res.reduce(
+							(acc, { pc, t, n }) =>
+								`${acc}<div class="x-ellipsis"><a href="${this.pcUrl}${pc}" target="_blank" title="${t} / ${n}">${n}</a></div>`,
+							""
+					  );
+			},
+			async _movieMagnet() {
+				const start = () => {
+					const node = DOC.querySelector(".top-meta");
+					if (!node) return;
+					node.insertAdjacentHTML(
+						"beforeend",
+						`<span class="tag is-success">磁力搜索</span><span class="tag is-success">自动去重</span>`
+					);
+				};
+				let magnets = (await this.movieMagnet(this.params, start)) ?? [];
+				const curMagnets = Array.from(DOC.querySelectorAll("#magnets-content .item") ?? []).map(item => {
+					const name = item.querySelector(".magnet-name");
+					const size = name.querySelector(".meta")?.textContent.split(",")[0].trim() ?? "";
+					return {
+						bytes: transToBytes(size),
+						date: item.querySelector(".date .time").textContent,
+						from: Domain,
+						link: name.querySelector("a").href.split("&")[0],
+						name: name.querySelector(".name").textContent,
+						size,
+						zh: !!name?.querySelector(".tags .tag.is-warning.is-small.is-light"),
+					};
+				});
+				magnets = unique([...curMagnets, ...magnets], "link");
+				this._movieSort(magnets);
+			},
+			_movieSort(magnets) {
+				const start = () => {
+					const node = DOC.querySelector(".top-meta");
+					if (node) node.insertAdjacentHTML("beforeend", `<span class="tag is-success">磁力排序</span>`);
+				};
+				magnets = this.movieSort(magnets, start);
+				if (!magnets.length) return;
+				this.magnets = magnets;
+
+				magnets = magnets.map(
+					({ link, name, size, zh, date, from, href }, index) => `
+                    <div class="item columns is-desktop${(index + 1) % 2 === 0 ? "" : " odd"}">
+                        <div class="magnet-name column is-four-fifths" title="${name}">
+                            <a href="${link}" class="x-ellipsis">
+                                <span class="name">${name}</span>
+                            </a>
+                        </div>
+                        <div class="column">
+                            <span class="tag is-warning is-small is-light ${zh ? "" : " x-out"}">字幕</span>
+                        </div>
+                        <div class="date column">
+                            <span>${size}</span>
+                        </div>
+                        <div class="date column">
+                            <span>${date}</span>
+                        </div>
+                        <div class="column">
+                            <a
+                                class="tag is-danger is-small is-light x-from"
+                                ${href ? `href="${href}" target="_blank" title="查看详情"` : ""}
+                            >
+                                ${from}
+                            </a>
+                        </div>
+                        <div class="buttons column">
+                            <button class="button is-info is-small" data-copy="${link}" title="复制磁力链接">复制链接</button><button class="button is-info is-small x-ml x-hide" data-magnet="${link}" title="仅添加离线任务">添加离线</button>
+                        </div>
+                    </div>
+                    `
+				);
+				magnets = magnets.join("");
+				const node = DOC.querySelector("#magnets-content");
+				node.innerHTML = magnets;
+
+				DOC.querySelector("#magnets-content").addEventListener("click", e => {
+					!handleCopyTxt(e, "复制成功") && this._driveOffline(e);
+				});
+			},
+			async _driveOffline(e) {
+				await this.driveOffline(e, { ...this.params, magnets: this.magnets });
+				await delay(1);
+				this._driveMatch();
+			},
+		};
+		others = {
+			docStart() {
+				GM_addStyle(`${this.style}${this._style}`);
+			},
+			contentLoaded() {
+				this._globalSearch();
 			},
 		};
 	}
