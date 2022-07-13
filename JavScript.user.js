@@ -3141,8 +3141,8 @@
 				this.globalDark(`${this.style}${this.customStyle}${this._style}${style}${this.listMovieTitle()}`);
 			},
 			contentLoaded() {
-				this._listMerge();
 				this.captureJump();
+				this._listMerge();
 
 				this._globalSearch();
 				this.globalClick([".movie-list .box", ".actors .box a", ".section-container .box"], "", url => {
@@ -3195,13 +3195,8 @@
 			},
 			async fetchMerge(list) {
 				GM_addStyle(`
-                .tabs.main-tabs.is-boxed,
-                .toolbar {
-                    display: none;
-                }
-                section.section {
-                    padding-bottom: 0;
-                }
+                .tabs.main-tabs.is-boxed, .toolbar { display: none; }
+                section.section { padding-bottom: 0; }
                 `);
 
 				const selectors = ".movie-list";
