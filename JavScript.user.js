@@ -1615,13 +1615,13 @@
 				let _res = res ?? (await Apis.searchVideo(prefix));
 				if (_res?.length) _res = _res.filter(({ n }) => regex.test(n));
 
-				if (!_res?.length) {
-					const cid = await this.driveCid();
-					_res = await Apis.getVideo(cid);
-				}
-				if (_res?.length) _res = _res.filter(({ n }) => regex.test(n));
-
 				if (!res) {
+					if (!_res?.length) {
+						const cid = await this.driveCid();
+						_res = await Apis.getVideo(cid);
+					}
+					if (_res?.length) _res = _res.filter(({ n }) => regex.test(n));
+
 					Store.upDetail(code, { res: _res });
 					if (this.G_CLICK) Store.addTemporaryOb(location.href);
 				}
