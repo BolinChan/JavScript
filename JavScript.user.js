@@ -1936,37 +1936,25 @@
 			const nav = this.listMerge();
 			if (!nav?.length) return;
 
-			if (!call) {
-				call = nav => {
-					const navbar = DOC.querySelector("#navbar > ul.nav.navbar-nav");
-					navbar?.insertAdjacentHTML(
-						"beforeend",
-						`
-                        <li id="merge" class="dropdown hidden-sm">
-                            <a
-                                href="#"
-                                class="dropdown-toggle"
-                                data-toggle="dropdown"
-                                data-hover="dropdown"
-                                role="button"
-                                aria-expanded="false"
-                            >
-                                合并列表 <span class="caret"></span>
-                            </a>
-                            <ul class="dropdown-menu" role="menu">
-                                ${nav.reduce(
-									(prev, curr) =>
-										`${prev}<li><a href="${location.origin}?merge=${curr}">${curr}</a></li>`,
-									""
-								)}
-                            </ul>
-                        </li>
-                        `
-					);
-				};
-			}
-
-			call(nav);
+			if (call) return call(nav);
+			DOC.querySelector("#navbar > ul.nav.navbar-nav")?.insertAdjacentHTML(
+				"beforeend",
+				`<li id="merge" class="dropdown hidden-sm">
+                    <a
+                        href="#"
+                        class="dropdown-toggle"
+                        data-toggle="dropdown"
+                        data-hover="dropdown"
+                        role="button"
+                        aria-expanded="false"
+                    >
+                        合并列表 <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        ${nav.reduce((prev, curr) => `${prev}<li><a href="/?merge=${curr}">${curr}</a></li>`, "")}
+                    </ul>
+                </li>`
+			);
 		};
 
 		// modules
@@ -2057,7 +2045,7 @@
 					const list = this.getMerge(title);
 					if (!list?.length) return location.replace(location.origin);
 
-					DOC.title = `${title} - 合并列表 - JavBus`;
+					DOC.title = `${title} - 合并列表 - ${Domain}`;
 
 					const merge = DOC.querySelector("#merge");
 					if (merge) {
@@ -2524,9 +2512,8 @@
 				);
 			},
 			contentLoaded() {
-				this._listMerge();
-
 				addMeta();
+				this._listMerge();
 
 				this._globalSearch();
 				this._globalClick();
@@ -2972,8 +2959,7 @@
 
 			DOC.querySelector("#navbar-menu-hero .navbar-start")?.insertAdjacentHTML(
 				"beforeend",
-				`
-                <div class="navbar-item has-dropdown is-hoverable">
+				`<div class="navbar-item has-dropdown is-hoverable">
                     <a class="navbar-link" href="/?merge=${nav[0]}">合并列表</a>
                     <div class="navbar-dropdown is-boxed">
                         ${nav.reduce(
@@ -2981,8 +2967,7 @@
 							""
 						)}
                     </div>
-                </div>
-                `
+                </div>`
 			);
 		};
 
@@ -3156,7 +3141,7 @@
 					const list = this.getMerge(title);
 					if (!list?.length) return location.replace(location.origin);
 
-					DOC.title = `${title} - 合并列表 - JavDB`;
+					DOC.title = `${title} - 合并列表 - ${Domain}`;
 					return this.fetchMerge(list);
 				}
 
@@ -3545,9 +3530,8 @@
 				this.globalDark(`${this.style}${this.customStyle}${this._style}${style}`);
 			},
 			contentLoaded() {
-				this._listMerge();
-
 				addMeta();
+				this._listMerge();
 
 				this._globalSearch();
 				this.globalClick([".tile-images.tile-small a.tile-item"]);
