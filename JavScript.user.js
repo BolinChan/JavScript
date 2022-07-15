@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name            JavScript
 // @namespace       JavScript@blc
-// @version         3.4.9
+// @version         3.5.0
 // @author          blc
 // @description     一站式体验，JavBus & JavDB 兼容
 // @icon            https://s1.ax1x.com/2022/04/01/q5lzYn.png
@@ -37,7 +37,6 @@
 
 /**
  * TODO:
- * ⏳ 网盘 - 离线垃圾文件清理
  * ❓ 网盘 - 一键离线 自动/手动
  */
 
@@ -614,6 +613,14 @@
 		static getVideo(cid = "") {
 			return this.getFile({ cid, custom_order: 0, star: "", suffix: "", type: 4 });
 		}
+		static driveClear({ pid, fids }) {
+			const data = { pid, ignore_warn: 1 };
+			fids.forEach((fid, index) => {
+				data[`fid[${index}]`] = fid;
+			});
+
+			return request("https://webapi.115.com/rb/delete", data, "POST");
+		}
 		static driveRename(res) {
 			const data = {};
 			for (const { fid, file_name } of res) data[`files_new_name[${fid}]`] = file_name;
@@ -652,6 +659,7 @@
 				"D_MATCH",
 				"D_CID",
 				"D_VERIFY",
+				"D_CLEAR",
 				"D_RENAME",
 			],
 			details: [
@@ -801,6 +809,13 @@
 					info: "『<strong>一键离线</strong>』后执行，查询以验证离线下载结果，每次间隔一秒<br>设置验证次数上限，上限次数越多验证越精准<br>建议 3 ~ 5，默认 3",
 					placeholder: "仅支持整数 ≥ 0",
 					defaultVal: 3,
+				},
+				{
+					name: "离线清理",
+					key: "D_CLEAR",
+					type: "switch",
+					info: "『<strong>一键离线</strong>』&『<strong>离线验证</strong>』后执行，匹配番号清理无关文件",
+					defaultVal: true,
 				},
 				{
 					name: "文件重命名",
@@ -1669,6 +1684,18 @@
 
 			return verify;
 		};
+		// D_CLEAR
+		driveClear = async ({ cid, res, code }) => {
+			if (!this.D_CLEAR) return;
+
+			const { regex } = codeParse(code);
+			unique(res.map(item => item.cid).filter(item => item !== cid)).forEach(async item => {
+				let data = await Apis.getFile({ cid: item });
+				if (data?.length <= 1) data = [];
+				data = data.filter(({ n }) => !regex.test(n));
+				if (data?.length) Apis.driveClear({ pid: item, fids: data.map(({ fid }) => fid) });
+			});
+		};
 		// D_RENAME
 		driveRename = ({ cid, res, zh, code, title }) => {
 			let file_name = this.D_RENAME?.trim();
@@ -1761,6 +1788,7 @@
 						successMsg.text = "点击跳转目录";
 						successMsg.clickUrl = `https://115.com/?cid=${res[0].cid}&offset=0&mode=wangpan`;
 						await this.driveRename({ cid, res, zh, code, title });
+						this.driveClear({ cid, res, code });
 					}
 
 					notify(successMsg);
