@@ -3794,10 +3794,10 @@
                             <span class="tag is-warning is-small is-light ${zh ? "" : " x-out"}">字幕</span>
                         </div>
                         <div class="date column">
-                            <span>${size}</span>
+                            <span class="meta">${size}</span>
                         </div>
                         <div class="date column">
-                            <span>${date}</span>
+                            <span class="time">${date}</span>
                         </div>
                         <div class="column">
                             <a
@@ -3808,7 +3808,7 @@
                             </a>
                         </div>
                         <div class="buttons column">
-                            <button class="button is-info is-small" data-copy="${link}" title="复制磁力链接">复制链接</button><button class="button is-info is-small x-ml x-hide" data-magnet="${link}" title="仅添加离线任务">添加离线</button>
+                            <button class="button is-info is-small" data-copy="${link}" title="复制磁力链接" type="button">复制链接</button><button class="button is-info is-small x-ml x-hide" data-magnet="${link}" title="仅添加离线任务" type="button">添加离线</button>
                         </div>
                     </div>
                     `
